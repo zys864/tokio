@@ -142,6 +142,7 @@ fn parse_knobs(
 ) -> Result<TokenStream, syn::Error> {
     let sig = &mut input.sig;
     let body = &input.block;
+    let mut body = quote! { #body };
     let attrs = &input.attrs;
     let vis = input.vis;
 
@@ -225,9 +226,15 @@ fn parse_knobs(
     let config = config.build()?;
 
     let mut rt = match config.flavor {
-        RuntimeFlavor::CurrentThread => quote! {
-            tokio::runtime::Builder::new_current_thread()
-        },
+        RuntimeFlavor::CurrentThread => {
+            body = quote! {
+                {
+                    let local = tokio::task::LocalSet::new();
+                    local.run_until(async #body).await
+                }
+            };
+            quote! { tokio::runtime::Builder::new_current_thread() }
+        }
         RuntimeFlavor::Threaded => quote! {
             tokio::runtime::Builder::new_multi_thread()
         },
