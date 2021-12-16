@@ -256,7 +256,15 @@ impl Semaphore {
 
             match self.permits.compare_exchange(curr, next, AcqRel, Acquire) {
                 Ok(_) => {
-                    // TODO: Instrument once issue has been solved}
+                    // TODO: Instrument once issue has been solved
+                    #[cfg(all(tokio_unstable, feature = "tracing"))]
+                    self.resource_span.in_scope(|| {
+                        tracing::trace!(
+                            target: "runtime::resource::state_update",
+                            permits = num_permits,
+                            permits.op = "sub",
+                        )
+                    });
                     return Ok(());
                 }
                 Err(actual) => curr = actual,
